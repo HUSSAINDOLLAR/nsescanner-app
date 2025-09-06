@@ -147,14 +147,38 @@ if is_market_open():
 else:
     st.caption("⏸ Auto-refresh OFF — Outside market hours")
 
-results = []
-for sym in watch_universe:
-    res = check_criteria(sym, strict_vol_scan, gap_list_up, gap_list_down, strict_mode)
-    if res and res["Vol_Ratio"] >= min_vol_ratio:
-        results.append(res)
+        "Confidence": round(conf, 2)
+    }
+
+# --- Display Top 5 ---
+if results:
+    df_res = pd.DataFrame(results).sort_values("Confidence", ascending=False).head(5)
+    st.dataframe(df_res, use_container_width=True)
+    st.caption("🚀 Gap Up | ⚠️ Gap Down | Strength = ★☆☆☆☆ to ★★★★★")
+
+    # Log signals for performance tracking
+    for row in df_res.to_dict(orient="records"):
         log_signal({
             "ts": datetime.now(IST).isoformat(),
-            "symbol": res["Symbol"],
-            "signal": res["Signal"],
-            "close": res["Close"],
-            "
+            "symbol": row["Symbol"],
+            "signal": row["Signal"],
+            "close": row["Close"],
+            "reason": row["Reason"],
+            "strength": row["Strength"]
+        })
+else:
+    st.info("No stocks meet the criteria right now.")
+
+# --- Performance Tracker ---
+st.subheader("📊 Performance Tracker (Last 20 Trades)")
+df_perf = simulate_trades()
+if not df_perf.empty:
+    win_rate = (df_perf["Outcome"] == "WIN").mean() * 100
+    avg_r = df_perf["R"].mean()
+    equity = df_perf["R"].cumsum()
+    st.metric("Win Rate", f"{win_rate:.1f}%")
+    st.metric("Avg R", f"{avg_r:.2f}")
+    st.line_chart(equity, use_container_width=True)
+    st.dataframe(df_perf, use_container_width=True)
+else:
+    st.info("No trades logged yet.")
